@@ -10,7 +10,8 @@ document.querySelector('#myButton').addEventListener('click', () => {
     }, (response) => {
         // Handle the data received from the service worker
         if (response && response.data) {
-            document.querySelector('#result').textContent = `Data: ${response.data.value}`;
+            document.querySelector('#result').textContent = 
+            `Data: ${response?.data?.candidates?.[0]?.content?.parts?.[0]?.text ?? 'No text in reply'}`;
         } else {
             document.querySelector('#result').textContent = 'Error fetching data.';
         }
