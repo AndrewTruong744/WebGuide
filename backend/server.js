@@ -6,14 +6,52 @@ const app = express();
 
 const assetsPath = path.join(__dirname, "public");
 app.use(express.static(assetsPath));
-
+app.use(express.json());
 app.use(cors());
 
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
+const API_KEY = process.env.API_KEY;
+
+app.get("/ping", (req, res) => {
+  res.json({ok: true, message: "Server is alive!"});
+});
+
+app.post("/ask", async (req, res) => {
+  const {prompt} = req.body;
+
+  if(!prompt)
+    return res.status(400).json({error: "no prompt provided"});
+
+  try{
+    const response = await fetch(
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": API_KEY
+        },
+        body: JSON.stringify({
+          contents: [
+            {role: "user", parts: [{text: prompt}]}
+          ]
+        })
+      }
+    );
+
+    const data = await response.json();
+
+    res.json(data);
+  }
+  catch(error){
+    console.error("API error:", error);
+    res.status(500).json({error: "Failed to fetch gemini response"});
+  }
+});
+
+
 app.listen(PORT, (error) => {
-  // This is important!
-  // Without this, any startup errors will silently fail
-  // instead of giving you a helpful error message.
+
   if (error) {
     throw error;
   }
