@@ -4,13 +4,12 @@ document.querySelector('#myButton').addEventListener('click', () => {
         return
 
     chrome.runtime.sendMessage({ 
-        action: 'FETCH_API_DATA', 
+        action: 'GET_ELEMENTS', 
         prompt: prompt.value 
     }, (response) => {
         
         if (response && response.data) {
-            document.querySelector('#result').textContent = 
-            `Data: ${response?.data?.candidates?.[0]?.content?.parts?.[0]?.text ?? 'No text in reply'}`;
+            document.querySelector('#result').textContent = 'Success';
         } else {
             document.querySelector('#result').textContent = 'Error fetching data.';
         }
