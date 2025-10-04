@@ -13,18 +13,16 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
         const data = await res.json();
 
-        // forward to content script
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
         if (tab?.id) chrome.tabs.sendMessage(tab.id, { action: 'HIGHLIGHT', data });
 
-        sendResponse({ ok: true, data });          // <-- success path
+        sendResponse({ ok: true, data });
       } catch (err) {
         console.error('fetch error', err);
-        sendResponse({ ok: false, error: err.message }); // <-- fail path
+        sendResponse({ ok: false, error: err.message });
       }
     })();
-            
-    // IMPORTANT: Return true to indicate you will send a response asynchronously
+          
     return true; 
   }
 });
