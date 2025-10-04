@@ -1,6 +1,6 @@
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'FETCH_API_DATA') {
-      
+    
     (async () => {
       try {
         const res = await fetch('http://localhost:3000/ask', {
