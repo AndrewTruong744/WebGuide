@@ -18,8 +18,8 @@ function buildSelector(el) {
 function highlight(el) {
   const prev = el.style.outline;
   el.scrollIntoView({ behavior: "smooth", block: "center" });
-  el.style.outline = "3px solid #00bcd4";
-  setTimeout(() => (el.style.outline = prev), 2200);
+  el.style.outline = "10px solid #00bcd4";
+  setTimeout(() => (el.style.outline = prev), 10000);
 }
 
 function waitForDomChange(timeoutMs = 3500) {
@@ -71,15 +71,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
   if (request.action === "GET_ELEMENTS_DATA_ONLY") { 
     const buttons = collectButtons(60);
-    // Send the data back synchronously. The Service Worker will handle the rest.
     sendResponse({ ok: true, elements: buttons }); 
-    return; // Transaction complete immediately.
+    return;
   }
 
   if (request.action === "HIGHLIGHT") {
-    // Wrap the synchronous logic in an async function and execute it immediately
     (async () => {
-        const selector = request?.data?.selector || request?.selector || "";
+        const selector = request?.selector || ""; 
         
         if (!selector) { 
             sendResponse({ ok: false, error: "no selector" }); 
@@ -95,12 +93,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         
         highlight(el);
         
-        // Final response is now inside the async block
         sendResponse({ ok: true });
     })();
 
-    // CRITICAL FIX: Return true to keep the message port open until the
-    // (now explicitly async) logic calls sendResponse().
     return true; 
   }
 

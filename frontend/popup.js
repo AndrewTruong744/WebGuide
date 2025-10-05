@@ -49,10 +49,8 @@ document.querySelector('#next').addEventListener('click', async () => {
           const reason = choice?.text || 'highlighted';
           const rawText = resp.data || ""; // Still keep raw text for debugging
 
-          // The background script now handles the highlight message, so we just update the UI.
-
           out.textContent = selector
-            ? `Step: ${reason}\nSelector: ${selector}`
+            ? `Step: ${reason}`
             : `Could not parse selector.\nRaw: ${rawText}`; 
         } else {
           out.textContent = `Failed: ${resp?.error || 'unknown'}`;
