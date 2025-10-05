@@ -3,7 +3,7 @@ document.querySelector('#myButton').addEventListener('click', () => {
   const text = (promptEl.value || '').trim();
   if (!text) return;
 
-  localStorage.setItem('prompt', text);
+  chrome.storage.local.set({ prompt: text });
 
   chrome.runtime.sendMessage(
     { action: 'GET_GUIDANCE', prompt: text },
@@ -17,7 +17,7 @@ document.querySelector('#myButton').addEventListener('click', () => {
 
       if (response?.ok && response?.data) {
         out.textContent =
-          response.data?.candidates?.[0]?.content?.parts?.[0]?.text ?? 'No text in reply';
+          response.data ?? 'No text in reply';
       } else {
         out.textContent = `Error: ${response?.error || 'fetch failed / no response'}`;
       }
@@ -25,8 +25,9 @@ document.querySelector('#myButton').addEventListener('click', () => {
   );
 });
 
-document.querySelector('#next').addEventListener('click', () => {
-    const goal = localStorage.getItem('prompt');
+document.querySelector('#next').addEventListener('click', async () => {
+    const storageData = await chrome.storage.local.get(['prompt', 'previousEl']);
+    const goal = storageData.prompt;
     const out = document.querySelector('#result');
 
     out.textContent = 'Thinking…';
@@ -41,11 +42,12 @@ document.querySelector('#next').addEventListener('click', () => {
         }
 
         if (resp?.ok && resp?.data) {
+
           const choice = resp.choice; 
           
           const selector = choice?.selector || '';
-          const reason = choice?.reason || 'highlighted';
-          const rawText = resp.data?.candidates?.[0]?.content?.parts?.[0]?.text || ""; // Still keep raw text for debugging
+          const reason = choice?.text || 'highlighted';
+          const rawText = resp.data || ""; // Still keep raw text for debugging
 
           // The background script now handles the highlight message, so we just update the UI.
 

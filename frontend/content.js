@@ -77,13 +77,31 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 
   if (request.action === "HIGHLIGHT") {
-    const selector = request?.data?.selector || request?.selector || "";
-    if (!selector) { sendResponse({ ok: false, error: "no selector" }); return true; }
-    const el = document.querySelector(selector);
-    if (!el) { sendResponse({ ok: false, error: "element not found" }); return true; }
-    highlight(el);
-    sendResponse({ ok: true });
-    return true;
+    // Wrap the synchronous logic in an async function and execute it immediately
+    (async () => {
+        const selector = request?.data?.selector || request?.selector || "";
+        
+        if (!selector) { 
+            sendResponse({ ok: false, error: "no selector" }); 
+            return;
+        }
+        
+        const el = document.querySelector(selector);
+        
+        if (!el) { 
+            sendResponse({ ok: false, error: "element not found" }); 
+            return;
+        }
+        
+        highlight(el);
+        
+        // Final response is now inside the async block
+        sendResponse({ ok: true });
+    })();
+
+    // CRITICAL FIX: Return true to keep the message port open until the
+    // (now explicitly async) logic calls sendResponse().
+    return true; 
   }
 
   if (request.action === "CLICK_AND_WAIT") {

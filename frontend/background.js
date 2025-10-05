@@ -43,6 +43,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                    `${i}. [${b.tag}] "${b.text}" selector="${b.selector}"`
                 ).join("\n");
 
+                const listOfElementNames = elementResp.elements.map(element => {
+                    return element.text
+                }).join(", ");
+
                 let promptBody = "";
                 if (request.next !== undefined) {
                     const storageData = await chrome.storage.local.get(['previousEl', 'prompt']);
@@ -57,14 +61,15 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                         Based on the goal and the list of clickable elements below, 
                         select the next element the user should interact with.
                         
-                        The output MUST be a valid JSON object with the keys 'selector' (string) 
-                        and 'reason' (string, explaining the choice).
+                        The output MUST be one of the CLICKABLE ELEMENT names.
                         
-                        CLICKABLE ELEMENTS:\n${list}`;
+                        CLICKABLE ELEMENTS:\n${listOfElementNames}`;
                 }
                 else
                     promptBody = 
-                        `Print text content or aria label of element... GOAL: ${request.prompt || request.goal} ... FROM ELEMENTS: ${list}`;
+                        `select and return one of the elements with goal of 
+                        ${request.prompt || request.goal} 
+                        ... FROM ELEMENTS: ${listOfElementNames}`;
 
                 // --- 2. Perform the API Fetch ---
                 const res = await fetch('http://localhost:3000/ask', {
@@ -77,37 +82,38 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 const rawResponse = await res.json();
                 const modelOutputText = rawResponse.candidates?.[0]?.content?.parts?.[0]?.text || '';
                 
-                // --- Extract the clean JSON for storage (using the same cleaning logic as the popup) ---
-                let choice = null;
-                try {
-                    // Clean the output (same logic as popup.js)
-                    const regex = /```(?:json)?\s*([\s\S]*?)\s*```/;
-                    const match = modelOutputText.trim().match(regex);
-                    const textToParse = (match && match[1]) ? match[1].trim() : modelOutputText.trim();
-                    choice = JSON.parse(textToParse);
-                } catch (e) {
-                    console.error("BG JSON Parse Error:", e);
-                    /* choice remains null */
-                }
-                
-                // --- CORRECT STORAGE UPDATE ---
-                // Save the final, CLEAN selector for the next step's prompt
-                const nextStepSelector = choice?.selector || 'element (unknown)';
+                const chosenElementText = modelOutputText.trim();
+                let finalSelector = null;
 
+                // Find the single element object that matches the text returned by the AI
+                const matchingElements = elementResp.elements.filter(element => {
+                    // We expect the AI to return the exact text of one element.
+                    return element.text === chosenElementText;
+                }); 
+
+                const finalElement = matchingElements.length > 0 ? matchingElements[0] : null;
+
+                // --- 2. Store the Chosen Element Text (Name) in previousEl ---
                 await chrome.storage.local.set({
-                    previousEl: nextStepSelector,
-                    // Save the goal here as well, in case 'prompt' wasn't set earlier
+                    // Store the text of the element as the "previous action"
+                    previousEl: chosenElementText, 
                     prompt: request.prompt || request.goal 
                 });
 
-                // --- 3. Highlight/Execute in Content Script ---
-                if (choice?.selector) {
-                    // Send the final parsed object 'choice' to the popup
-                    await sendMessageToTab(tab.id, { action: 'HIGHLIGHT', selector: choice.selector });
-                }
+                // --- 3. Highlight/Execute in Content Script using the selector ---
+                // if (finalElement) {
+                //     finalSelector = finalElement.selector;
+                //     // Send the final selector string to the content script for highlighting
+                //     await sendMessageToTab(tab.id, { action: 'HIGHLIGHT', selector: finalSelector });
+                // }
 
-                // Send FINAL success back to the original popup caller
-                sendResponse({ ok: true, data: rawResponse, choice: choice });
+                // --- 4. Send FINAL success back to the original popup caller ---
+                // Send the plain text name (chosenElementText) back to the popup for display
+                sendResponse({ 
+                    ok: true, 
+                    data: chosenElementText, // The element's text (name)
+                    choice: finalElement // The full element object for potential debugging
+                });
                 
             } catch (err) {
                 console.error('[Background Orchestrator Error]:', err);
