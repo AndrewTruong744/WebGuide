@@ -43,7 +43,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                    `${i}. [${b.tag}] "${b.text}" selector="${b.selector}"`
                 ).join("\n");
                 
-                const promptBody = `JSON ONLY... GOAL: ${request.prompt || request.goal} ... ELEMENTS: ${list}`;
+                const promptBody = `Print text content or aria label of element... GOAL: ${request.prompt || request.goal} ... FROM ELEMENTS: ${list}`;
 
                 // --- 2. Perform the API Fetch ---
                 const res = await fetch('http://localhost:3000/ask', {
