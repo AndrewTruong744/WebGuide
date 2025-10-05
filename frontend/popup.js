@@ -3,8 +3,10 @@ document.querySelector('#myButton').addEventListener('click', () => {
   const text = (promptEl.value || '').trim();
   if (!text) return;
 
+  localStorage.setItem('prompt', text);
+
   chrome.runtime.sendMessage(
-    { action: 'FETCH_API_DATA', prompt: text },
+    { action: 'GET_GUIDANCE', prompt: text },
     (response) => {
       const out = document.querySelector('#result');
 
@@ -19,70 +21,40 @@ document.querySelector('#myButton').addEventListener('click', () => {
       } else {
         out.textContent = `Error: ${response?.error || 'fetch failed / no response'}`;
       }
-
-      showNextStepButton();
     }
   );
 });
 
-function showNextStepButton() {
-  if (document.querySelector('#nextStepBtn')) return;
-
-  const nextBtn = document.createElement('button');
-  nextBtn.id = 'nextStepBtn';
-  nextBtn.textContent = 'Next Step';
-
-  nextBtn.onclick = () => {
-    const promptEl = document.querySelector('#prompt');
-    const goal = (promptEl.value || '').trim();
+document.querySelector('#next').addEventListener('click', () => {
+    const goal = localStorage.getItem('prompt');
     const out = document.querySelector('#result');
 
-    nextBtn.disabled = true;
     out.textContent = 'Thinking…';
 
     // Manual step: popup -> background relay -> content collects -> background /ask -> content highlight
     chrome.runtime.sendMessage(
-      { action: 'GET_ELEMENTS', prompt: goal },
+      { action: 'GET_GUIDANCE', prompt: goal, next: true },
       (resp) => {
         if (chrome.runtime.lastError) {
           out.textContent = `Runtime error: ${chrome.runtime.lastError.message}`;
-          nextBtn.disabled = false;
           return;
         }
-        if (resp?.ok && resp?.data) {
-        
-        if (resp?.ok && resp?.data) {
-          // Try to parse the choice from model text
-          const text = resp.data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
-          let choice = null;
-          try { choice = JSON.parse(text); } catch { /* ignore */ }
 
+        if (resp?.ok && resp?.data) {
+          const choice = resp.choice; 
+          
           const selector = choice?.selector || '';
           const reason = choice?.reason || 'highlighted';
+          const rawText = resp.data?.candidates?.[0]?.content?.parts?.[0]?.text || ""; // Still keep raw text for debugging
 
-          // forward highlight command
-          chrome.runtime.sendMessage(
-            { action: 'NEXT_GUIDE_STEP', goal }, // relay so background sends to content
-            () => {}
-          );
-          // also directly highlight if selector exists
-          if (selector) {
-            chrome.runtime.sendMessage({ action: 'HIGHLIGHT', selector }, () => {});
-          }
+          // The background script now handles the highlight message, so we just update the UI.
 
           out.textContent = selector
             ? `Step: ${reason}\nSelector: ${selector}`
-            : `Could not parse selector.\nRaw: ${text}`;
+            : `Could not parse selector.\nRaw: ${rawText}`; 
         } else {
           out.textContent = `Failed: ${resp?.error || 'unknown'}`;
         }
-
-        nextBtn.disabled = false;
       }
     );
-  };
-
-  // Optional separator
-  document.body.appendChild(document.createElement('hr'));
-  document.body.appendChild(nextBtn);
-}
+ });
