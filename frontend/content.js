@@ -1,71 +1,124 @@
-// content.js
-
-// Function to generate a random background color
-function getRandomColor() {
-    const letters = '0123456789ABCDEF';
-    let color = '#';
-    for (let i = 0; i < 6; i++) {
-        color += letters[Math.floor(Math.random() * 16)];
-    }
-    return color;
+function buildSelector(el) {
+  if (!el || el.nodeType !== 1) return "";
+  const id = el.getAttribute("id");
+  if (id) return `#${CSS.escape(id)}`;
+  const aria = el.getAttribute("aria-label");
+  if (aria) return `${el.tagName.toLowerCase()}[aria-label="${aria}"]`;
+  const name = el.getAttribute("name");
+  if (name) return `${el.tagName.toLowerCase()}[name="${name}"]`;
+  const role = el.getAttribute("role");
+  if (role) return `${el.tagName.toLowerCase()}[role="${role}"]`;
+  const type = el.getAttribute("type");
+  if (type) return `${el.tagName.toLowerCase()}[type="${type}"]`;
+  const cls = (el.className || "").toString().trim().replace(/\s+/g, ".");
+  if (cls) return `${el.tagName.toLowerCase()}.${cls}`;
+  return el.tagName.toLowerCase();
 }
 
-// Listen for a message from the popup (relayed via the service worker, if applicable)
-chrome.runtime.onMessage.addListener(
-    function(request, sender, sendResponse) {
-        if (request.action === 'GET_ELEMENTS') {
-            const CLICKABLE_SELECTORS = 
-                `a, button, input[type="button"], input[type="submit"], 
-                [role="button"], [onclick], [tabindex]:not([tabindex="-1"])`;
-            // 1. Query all matching elements
-            const elements = document.querySelectorAll(CLICKABLE_SELECTORS);
+function highlight(el) {
+  const prev = el.style.outline;
+  el.scrollIntoView({ behavior: "smooth", block: "center" });
+  el.style.outline = "3px solid #00bcd4";
+  setTimeout(() => (el.style.outline = prev), 2200);
+}
 
-            // 2. Convert the NodeList to a true Array and Map over it
-            const elementData = Array.from(elements).map((el, index) => {
-                
-                // Clean up the text content (remove extra white space/newlines)
-                const textContent = el.textContent ? el.textContent.trim().replace(/\s+/g, ' ') : '';
-                
-                // Return a clean object for each element
-                return {
-                    index: index, // Useful for later identification
-                    tag: el.tagName.toLowerCase(),
-                    text: textContent,
-                    // Optionally, include unique attributes like ID or ARIA label
-                    id: el.id || null, 
-                    ariaLabel: el.getAttribute('aria-label') || null 
-                };
-            }).filter(item => item.text.length > 0 || item.tag === 'BUTTON'); 
-            // Filter out elements that have no visible text, unless they are buttons
+function waitForDomChange(timeoutMs = 3500) {
+  return new Promise((resolve) => {
+    let changed = false;
+    const obs = new MutationObserver(() => {
+      changed = true;
+      obs.disconnect();
+      resolve(true);
+    });
+    obs.observe(document.body, { childList: true, subtree: true, attributes: true });
+    setTimeout(() => { obs.disconnect(); resolve(changed); }, timeoutMs);
+  });
+}
 
-            const elementDataString = elementData.join(", ");
+function collectButtons(limit = 60) {
+  const CLICKABLES =
+    "button, a, [role='button'], input[type='button'], input[type='submit'], [onclick], [tabindex]:not([tabindex='-1'])";
 
-            chrome.runtime.sendMessage({ 
-                action: 'FETCH_API_DATA', 
-                prompt: "what element do I click: " + 
-                        elementDataString + ". " + prompt.value + 
-                        " " + window.location.href 
-            }, (response) => {
-                // Handle the data received from the service worker
-                if (response && response.data) {
-                    console.log( 
-                    `Data: ${response?.data?.candidates?.[0]?.content?.parts?.[0]?.text ?? 'No text in reply'}`
-                    );
-                    sendResponse({ ok: true, data });
-                } else {
-                    console.log('Error fetching data.');
-                    sendResponse({ ok: true, data });
-                }
-            });
+  const nodes = Array.from(document.querySelectorAll(CLICKABLES));
+  const out = [];
 
-            return true;
-        }
+  for (const el of nodes) {
+    const r = el.getBoundingClientRect();
+    if (!(r.width > 0 && r.height > 0)) continue; 
 
-        if (request.action === "HIGHLIGHT") {
-            console.log(request.data)    
+    const label = (
+      el.getAttribute("aria-label") ||
+      el.textContent ||
+      el.value ||
+      el.getAttribute("title") ||
+      ""
+    ).trim().replace(/\s+/g, " ");
 
-            // Send a response back (optional, but good practice)
-            sendResponse({ status: "Element Highlighted!" });
-        }
-    }
-);
+    if (!label) continue;
+
+    out.push({
+      tag: el.tagName.toLowerCase(),
+      text: label.slice(0, 80),
+      selector: buildSelector(el)
+    });
+
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+
+  if (request.action === "GET_ELEMENTS") {
+    const buttons = collectButtons(60);
+
+    const list = buttons.map((b, i) =>
+      `${i}. [${b.tag}] "${b.text}" selector="${b.selector}"`
+    ).join("\n");
+
+    const userGoal = (request.prompt || "").trim();
+
+    chrome.runtime.sendMessage({
+      action: "FETCH_API_DATA",
+      prompt:
+`JSON ONLY. Given these clickable elements, pick the best one toward the goal.
+Return: {"index":number,"selector":"","label":"","reason":""}
+GOAL: ${userGoal}
+URL: ${location.href}
+ELEMENTS:
+${list}`
+    }, (response) => {
+      if (response && response.data) {
+        sendResponse({ ok: true, data: response.data });
+      } else {
+        sendResponse({ ok: false, error: response?.error || "fetch failed" });
+      }
+    });
+
+    return true; 
+  }
+
+  if (request.action === "HIGHLIGHT") {
+    const selector = request?.data?.selector || request?.selector || "";
+    if (!selector) { sendResponse({ ok: false, error: "no selector" }); return true; }
+    const el = document.querySelector(selector);
+    if (!el) { sendResponse({ ok: false, error: "element not found" }); return true; }
+    highlight(el);
+    sendResponse({ ok: true });
+    return true;
+  }
+
+  if (request.action === "CLICK_AND_WAIT") {
+    (async () => {
+      const selector = request?.selector || "";
+      const el = selector ? document.querySelector(selector) : null;
+
+      if (!el) { sendResponse({ ok: false, changed: false, error: "element not found" }); return; }
+
+      highlight(el);
+      const changed = await waitForDomChange(3500);
+      sendResponse({ ok: true, changed });
+    })();
+
+    return true; 
+}});

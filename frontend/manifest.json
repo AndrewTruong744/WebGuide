@@ -2,12 +2,13 @@
   "manifest_version": 3,
   "name": "WebGuide",
   "version": "1.0",
-  "description": "A basic Chrome extension example.",
+  "description": "Assist people to navigate the web.",
   "action": {
     "default_popup": "popup.html"
   },
   "permissions": [
-    "activeTab"
+    "activeTab",
+    "tabs"
   ],
   "host_permissions": [
     "http://localhost:3000/"
