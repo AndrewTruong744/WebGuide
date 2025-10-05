@@ -44,7 +44,7 @@ function collectButtons(limit = 60) {
 
   for (const el of nodes) {
     const r = el.getBoundingClientRect();
-    if (!(r.width > 0 && r.height > 0)) continue; 
+    if (!(r.width > 0 && r.height > 0)) continue;
 
     const label = (
       el.getAttribute("aria-label") ||
@@ -69,33 +69,11 @@ function collectButtons(limit = 60) {
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
-  if (request.action === "GET_ELEMENTS") {
+  if (request.action === "GET_ELEMENTS_DATA_ONLY") { 
     const buttons = collectButtons(60);
-
-    const list = buttons.map((b, i) =>
-      `${i}. [${b.tag}] "${b.text}" selector="${b.selector}"`
-    ).join("\n");
-
-    const userGoal = (request.prompt || "").trim();
-
-    chrome.runtime.sendMessage({
-      action: "FETCH_API_DATA",
-      prompt:
-`JSON ONLY. Given these clickable elements, pick the best one toward the goal.
-Return: {"index":number,"selector":"","label":"","reason":""}
-GOAL: ${userGoal}
-URL: ${location.href}
-ELEMENTS:
-${list}`
-    }, (response) => {
-      if (response && response.data) {
-        sendResponse({ ok: true, data: response.data });
-      } else {
-        sendResponse({ ok: false, error: response?.error || "fetch failed" });
-      }
-    });
-
-    return true; 
+    // Send the data back synchronously. The Service Worker will handle the rest.
+    sendResponse({ ok: true, elements: buttons }); 
+    return; // Transaction complete immediately.
   }
 
   if (request.action === "HIGHLIGHT") {
