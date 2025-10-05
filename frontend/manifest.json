@@ -4,8 +4,19 @@
   "version": "1.0",
   "description": "Assist people to navigate the web.",
   "action": {
-    "default_popup": "popup.html"
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "images/pfp.png",
+      "32": "images/pfp.png"
+    }
   },
+  "icons": {
+    "16": "images/pfp.png",
+    "32": "images/pfp.png",
+    "48": "images/pfp.png",
+    "128": "images/pfp.png"
+  },
+
   "permissions": [
     "activeTab",
     "tabs",
