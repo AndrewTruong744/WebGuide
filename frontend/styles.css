@@ -49,3 +49,6 @@ Button:active{
     justify-content: center;
     margin-top: 10px;
 }
+#result{
+    color: white;
+}
