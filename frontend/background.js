@@ -23,7 +23,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 });
 
                 const elementResp = await sendMessageToTab(tab.id, {
-                    action: 'GET_ELEMENTS_DATA_ONLY', // Use the new clean action
+                    action: 'GET_ELEMENTS_DATA_ONLY',
                     prompt: request.prompt || request.goal
                 });
 
@@ -31,7 +31,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     throw new Error(elementResp?.error || 'Content script failed to return elements.');
                 }
                 
-                // Build the prompt for the external API
                 const list = elementResp.elements.map((b, i) => 
                    `${i}. [${b.tag}] "${b.text}" selector="${b.selector}"`
                 ).join("\n");
@@ -64,7 +63,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                         ${request.prompt || request.goal} 
                         ... FROM ELEMENTS: ${listOfElementNames}`;
 
-                // Perform the API Fetch
                 const res = await fetch('http://localhost:3000/ask', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -112,6 +110,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             }
         })();
         
-        return true; // Keep the response port open for the async operations
+        return true;
     }
 });

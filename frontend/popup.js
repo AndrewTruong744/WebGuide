@@ -32,7 +32,6 @@ document.querySelector('#next').addEventListener('click', async () => {
 
     out.textContent = 'Thinking...';
 
-    // Manual step: popup -> background relay -> content collects -> background /ask -> content highlight
     chrome.runtime.sendMessage(
       { action: 'GET_GUIDANCE', prompt: goal, next: true },
       (resp) => {
@@ -47,7 +46,7 @@ document.querySelector('#next').addEventListener('click', async () => {
           
           const selector = choice?.selector || '';
           const reason = choice?.text || 'highlighted';
-          const rawText = resp.data || ""; // Still keep raw text for debugging
+          const rawText = resp.data || ""; 
 
           out.textContent = selector
             ? `Step: ${reason}`

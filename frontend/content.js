@@ -1,11 +1,9 @@
 function buildSelector(el) {
   if (!el || el.nodeType !== 1) return "";
 
-  // 1. Check for ID (Highest Priority)
   const id = el.getAttribute("id");
   if (id) return `#${CSS.escape(id)}`;
 
-  // 2. Check for other unique attributes
   const aria = el.getAttribute("aria-label");
   if (aria) return `${el.tagName.toLowerCase()}[aria-label="${aria}"]`;
   const name = el.getAttribute("name");
@@ -15,21 +13,16 @@ function buildSelector(el) {
   const type = el.getAttribute("type");
   if (type) return `${el.tagName.toLowerCase()}[type="${type}"]`;
 
-  // 4. Use Class List (Last Resort, now correctly escaped)
   const classList = Array.from(el.classList);
   
   if (classList.length > 0) {
-      // 1. Escape each class name individually
       const escapedClasses = classList.map(cls => CSS.escape(cls));
-      // 2. Join them with a dot prefix
       const classSelector = escapedClasses.map(cls => `.${cls}`).join('');
       return el.tagName.toLowerCase() + classSelector;
   }
 
-  // 5. Fallback: Tag name only
   return el.tagName.toLowerCase();
 }
-
 function highlight(el) {
   const prev = el.style.outline;
   el.scrollIntoView({ behavior: "smooth", block: "center" });
