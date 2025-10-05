@@ -30,7 +30,7 @@ document.querySelector('#next').addEventListener('click', async () => {
     const goal = storageData.prompt;
     const out = document.querySelector('#result');
 
-    out.textContent = 'Thinking…';
+    out.textContent = 'Thinking...';
 
     // Manual step: popup -> background relay -> content collects -> background /ask -> content highlight
     chrome.runtime.sendMessage(

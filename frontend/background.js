@@ -78,9 +78,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 const chosenElementText = modelOutputText.trim();
                 let finalSelector = null;
 
-                // Find the single element object that matches the text returned by the AI
                 const matchingElements = elementResp.elements.filter(element => {
-                    // We expect the AI to return the exact text of one element.
                     return element.text === chosenElementText;
                 }); 
 
@@ -95,7 +93,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     const finalSelector = finalElement.selector; 
                     
                     if (typeof finalSelector === 'string' && finalSelector.length > 0) {
-                        await sendMessageToTab(tab.id, { action: 'HIGHLIGHT', selector: finalSelector });
+                        await sendMessageToTab(tab.id, { action: 'HIGHLIGHT', selector: finalSelector});
                     } else {
                         console.warn("[Background]: Cannot highlight: Selector is missing or invalid.");
                     }
