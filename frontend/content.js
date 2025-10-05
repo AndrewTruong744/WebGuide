@@ -98,5 +98,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       sendResponse({ ok: true, changed });
     })();
 
-    return true; 
-}});
+    return true;
+  } 
+});

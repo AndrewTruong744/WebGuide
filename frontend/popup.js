@@ -58,3 +58,7 @@ document.querySelector('#next').addEventListener('click', () => {
       }
     );
  });
+<<<<<<< HEAD
+=======
+
+>>>>>>> refs/remotes/origin/main

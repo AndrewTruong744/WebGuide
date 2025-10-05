@@ -15,7 +15,7 @@ function sendMessageToTab(tabId, message) {
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     
     // Check if the request is one that requires the full asynchronous chain
-    if (request.action === 'FETCH_API_DATA' || request.action === 'GET_ELEMENTS' || request.action === 'NEXT_GUIDE_STEP') {
+    if (request.action === 'GET_GUIDANCE') {
         (async () => {
             try {
                 const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -42,8 +42,29 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 const list = elementResp.elements.map((b, i) => 
                    `${i}. [${b.tag}] "${b.text}" selector="${b.selector}"`
                 ).join("\n");
-                
-                const promptBody = `Print text content or aria label of element... GOAL: ${request.prompt || request.goal} ... FROM ELEMENTS: ${list}`;
+
+                let promptBody = "";
+                if (request.next !== undefined) {
+                    const storageData = await chrome.storage.local.get(['previousEl', 'prompt']);
+                    const previousElValue = storageData.previousEl || 'the initial element'; 
+                    const promptGoal = storageData.prompt || 'the goal';
+
+                    promptBody = 
+                        `You are an AI assistant helping a user navigate a webpage. 
+                        The last action was performed on the element: "${previousElValue}".
+                        The current overall goal is: "${promptGoal}". 
+                        
+                        Based on the goal and the list of clickable elements below, 
+                        select the next element the user should interact with.
+                        
+                        The output MUST be a valid JSON object with the keys 'selector' (string) 
+                        and 'reason' (string, explaining the choice).
+                        
+                        CLICKABLE ELEMENTS:\n${list}`;
+                }
+                else
+                    promptBody = 
+                        `Print text content or aria label of element... GOAL: ${request.prompt || request.goal} ... FROM ELEMENTS: ${list}`;
 
                 // --- 2. Perform the API Fetch ---
                 const res = await fetch('http://localhost:3000/ask', {
@@ -53,15 +74,40 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 });
 
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                const data = await res.json();
+                const rawResponse = await res.json();
+                const modelOutputText = rawResponse.candidates?.[0]?.content?.parts?.[0]?.text || '';
                 
+                // --- Extract the clean JSON for storage (using the same cleaning logic as the popup) ---
+                let choice = null;
+                try {
+                    // Clean the output (same logic as popup.js)
+                    const regex = /```(?:json)?\s*([\s\S]*?)\s*```/;
+                    const match = modelOutputText.trim().match(regex);
+                    const textToParse = (match && match[1]) ? match[1].trim() : modelOutputText.trim();
+                    choice = JSON.parse(textToParse);
+                } catch (e) {
+                    console.error("BG JSON Parse Error:", e);
+                    /* choice remains null */
+                }
+                
+                // --- CORRECT STORAGE UPDATE ---
+                // Save the final, CLEAN selector for the next step's prompt
+                const nextStepSelector = choice?.selector || 'element (unknown)';
+
+                await chrome.storage.local.set({
+                    previousEl: nextStepSelector,
+                    // Save the goal here as well, in case 'prompt' wasn't set earlier
+                    prompt: request.prompt || request.goal 
+                });
+
                 // --- 3. Highlight/Execute in Content Script ---
-                if (data?.selector) {
-                    await sendMessageToTab(tab.id, { action: 'HIGHLIGHT', selector: data.selector, data: data });
+                if (choice?.selector) {
+                    // Send the final parsed object 'choice' to the popup
+                    await sendMessageToTab(tab.id, { action: 'HIGHLIGHT', selector: choice.selector });
                 }
 
                 // Send FINAL success back to the original popup caller
-                sendResponse({ ok: true, data: data });
+                sendResponse({ ok: true, data: rawResponse, choice: choice });
                 
             } catch (err) {
                 console.error('[Background Orchestrator Error]:', err);
